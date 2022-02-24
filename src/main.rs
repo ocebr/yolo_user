@@ -9,13 +9,13 @@ mod handlers;
 mod models;
 use handlers::app_config;
 
+
 extern crate serde;
 use crate::config::Config;
 //use chrono::{DateTime, Utc};
-use actix_web::{web, App, HttpServer, Responder, middleware::Logger};
-use actix_web::HttpResponse;
+use actix_web::{web, App, HttpServer, Responder, middleware::Logger ,HttpResponse};
 use serde::{Deserialize, Serialize};
-
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 
 
 #[derive(Serialize, Deserialize)]
@@ -52,91 +52,6 @@ pub struct Inputlogin {
     pub pwd : String,
 }
 
-
-//#########################################__response qui marche__################################
-
-//  async fn test_login(item: web::Form<InputUser>) -> impl Responder {
-//     // let demo : LoginUser = LoginUser { 
-//     //     username:String::from("flo"),
-//     //     password:String::from("admin"),
-//     //     id: String::from("0001")
-//     // };
-//     let new_user = NewUser {
-//         first_name: &item.fname,
-//         last_name: &item.lname,
-//         email: &item.email,
-//         pass_word : &item.pwd,  
-//         created_at: chrono::Local::now().naive_local(),
-//     };
-
-//     println!("{}\n",&item.fname);   //test recup les données du form
-//     println!("{}\n",&item.lname);
-//     println!("{}\n",&item.email);
-//     println!("{}\n",&item.pwd);
-
-//     println!("{:?}", new_user);
-//     HttpResponse::Ok()
-//     .content_type("text/html")
-//     .body("
-//     <!DOCTYPE html>
-//     <html>
-//     <head>
-//     <title>connexion ok</title>
-//     </head>
-//     <body>
-//     <script>
-//     let a = 0;
-//     console.log(a);
-//     </script>
-//     <h1>vous etes connecté</h1>    
-//     </body>
-//     </html> ")
-// }
-
-
-//  async fn login(item : web::Form::<Inputlogin>) -> impl Responder {
-//      println!("email : {} , pass : {}", &item.email, &item.pwd);
-//      if &item.email == "aze@aze" && &item.pwd == "allo" {
-//         HttpResponse::Ok()
-//         .content_type("text/html")
-//         .body("
-//         <!DOCTYPE html>
-//         <html>
-//         <head>
-//         <title>connexion ok</title>
-//         </head>
-//         <body>
-//         <script>
-//         let a = 0;
-//         console.log(a);
-//         </script>
-//         <h1>vous etes connecté</h1>    
-//         </body>
-//         </html> ")
-//      }
-//      else {
-//         HttpResponse::Ok()
-//         .content_type("text/html")
-//         .body("
-//         <!DOCTYPE html>
-//         <html>
-//         <head>
-//         <title>connexion ok</title>
-//         </head>
-//         <body>
-//         <script>
-//         let a = 0;
-//         console.log(a);
-//         </script>
-//         <h1>NON</h1>    
-//         </body>
-//         </html> ")
-//      }
-    
-// }
-
-
-
  #[actix_web::main]
  async fn main() -> std::io::Result<()> {
 
@@ -153,6 +68,12 @@ pub struct Inputlogin {
 
     let crypto_service = config.crypto_service();
 
+    let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+    builder
+        .set_private_key_file("key.pem", SslFiletype::PEM)
+        .unwrap();
+    builder.set_certificate_chain_file("cert.pem").unwrap();
+
 
      HttpServer::new( move || {
          App::new()
@@ -160,15 +81,15 @@ pub struct Inputlogin {
                 .data(pool.clone())
                 .data(crypto_service.clone())
                 .configure(app_config)
-                // .route("/signup", web::post().to(test_login))
+                //.route("/signin", web::post().to(signin))
                 // .route("/login", web::post().to(login))
                  //.route("/addition2", web::post().to(addition))
                  //  .servic e(
                  //     web::resource("/addition2").route(
                  //         web::post().to(addition2)))
      })         
-
-     .bind(format!("{}:{}",config.host,config.port))?
+     .bind_openssl("127.0.0.1:8080", builder)?
+     //.bind(format!("{}:{}",config.host,config.port))?
      .run()
      .await
  }

@@ -2,84 +2,98 @@ use super::AppResponse;
 use crate::{
     config::crypto::{Auth, CryptoService},
     db::user::UserRepository,
-    errors::AppError,
+    errors::{AppErrorCode,AppError},
 };
-
-use actix_web::{web::Data,http::header, FromRequest, HttpResponse};
+use actix_web::cookie::Cookie;
+use actix_web::{web::Data,web::Form, FromRequest, HttpResponse, HttpRequest,dev::HttpResponseBuilder,web::Json};
 use actix_web_httpauth::extractors::{basic::BasicAuth, bearer::BearerAuth};
 use futures::future::{ready, BoxFuture};
 use tracing::{debug, instrument};
 use uuid::Uuid;
+use serde::{Deserialize,Serialize};
 
-#[derive(Debug)]
-pub struct AuthenticatedUser(pub Uuid);
 
-impl FromRequest for AuthenticatedUser {
-    type Error = AppError;
-    type Future = BoxFuture<'static, Result<Self, Self::Error>>;
-    type Config = ();
-    #[instrument(skip(req,payload))]
-    fn from_request(req: &actix_web::HttpRequest, payload: &mut actix_web::dev::Payload) -> Self::Future {
-        
-        let bearer_result = BearerAuth::from_request(req, payload).into_inner();
-        println!("bearer result : {:?}", bearer_result);
-        let repository_result = UserRepository::from_request(req, payload).into_inner();
-        let crypto_service_result = Data::<CryptoService>::from_request(req, payload).into_inner();
-
-        match (bearer_result, repository_result, crypto_service_result) {
-                (Ok(bearer), Ok(repository), Ok(crypto_service)) => {
-                    let future = async move {
-                        let user_id: Uuid = crypto_service
-                            .verify_jwt(bearer.token().to_string())
-                            .await
-                            .map(|data| data.claims.sub)
-                            .map_err(|err| { debug!("cannot verify jwt {:?}", err);
-                                             AppError::NOT_AUTHORIZED})?;
-                            Ok(AuthenticatedUser(user_id))
-                    };
-                    Box::pin(future)
-                }
-                _ => {
-                        let error = ready(Err(AppError::NOT_AUTHORIZED.into()));
-                        Box::pin(error)
-                }
-        }
-    }
+#[derive(Debug,Deserialize,Serialize)]
+pub struct Inputlogin {
+    pub username:String,
+    pub password:String,
 }
+
+
+
 
 #[instrument(skip(basic, repository, hashing))]
 pub async fn signin(
-    basic : BasicAuth,
+    basic : Form<Inputlogin>,
     repository : UserRepository,
-    hashing: Data<CryptoService>) -> AppResponse {
-        println!("basic : {:?}", basic);
+    hashing: Data<CryptoService>,
+    req: HttpRequest) -> Result<actix_web::HttpResponse,actix_web::HttpResponse> {
 
-        let username = basic.user_id();
-        //clearprintln!("{}", basic.user_id());
-        let password = basic.password()
-                            .ok_or_else(|| {
-                                    debug!("invalid request. basic auth");
-                                    AppError::INVALID_CREDENTIALS
-                            })?;
-        
-        //println!("from signin : {}", password);
-        let user = repository.find_by_username(username)
-                             .await?
-                             .ok_or_else(|| {
-                                debug!("user do not exist");
-                                AppError::INVALID_CREDENTIALS
-                             })?;
 
-        let valid = hashing.verify_password(password, &user.password_hash)
-                           .await?;
+        //if cookie -> ok {
+            // display 
+        //}
+        //value du COOKIE WOW:
+        //let c = Cookie::parse(req.headers().get("cookie").unwrap().to_str().unwrap());
+        //let c_result = c.clone();
+        //let c_value = Cookie::parse(req.headers().get("cookie").unwrap().to_str().unwrap()).unwrap().value();
+       // println!("cookie value : {:?}", c.unwrap().value());
+
+
+        //println!("basic : {:?}", basic);
+        let username = &basic.username;
+        //println!("{}", username);
+        let password = &basic.password;
         
+        println!("from signin : {}", password);
+        let user = repository.find_by_username(username).await.expect("error");
+                            //  .await?
+                            //  .ok_or_else(|| {
+                            //     debug!("user do not exist");
+                            //     AppError::INVALID_CREDENTIALS
+                            //  })?;
+
+        let valid = hashing.verify_password(password, &user.password_hash).await;
+
+        
+        if valid {                
+                            let token = hashing.generate_jwt(user.id).await.expect("err");
+                            println!("{:?}",token);
+                            let cookie = Cookie::new("JWT", &token);
+                            println!("{}",&cookie);
+                            // Ok(HttpResponse::Ok()  
+                            //                     .cookie(Cookie::build("JWT", &token).finish())
+                            //                     .header("Location", "/app")
+                            //                     .json(Auth{token }))
+                            //Cookie::build("JWT", &token).domain("localhost").finish()
+                            
+                            
+                            // println!("request to send = {:#?}",HttpResponse::Found()
+                            //                                         .header("Location", "https://127.0.0.1:4201/app")
+                            //                                         .cookie(Cookie::build("JWT", &token) 
+                            //                                         // .secure(true)
+                            //                                         // .http_only(true)     
+                            //                                                     // .domain("http://localhost:4201")
+                            //                                                     // .path("/app")
+                            //                                                     .finish()));
+                            Ok(HttpResponse::Found()
+                                                    .header("Location", "https://127.0.0.1:4201/app")
+                                                    .cookie(Cookie::build("JWT", &token) 
+                                                     .secure(true)
+                                                     .http_only(true)       
+                                                                // .domain("http://localhost:4201")
+                                                                // .path("/app")
+                                                                .finish())
+                                                    .json(Auth{token})
+                                                
+                                                )
+                            
+                        }
+
+                        else {
+                            Err(HttpResponse::Found().header("Location", "https://127.0.0.1:4201/pagetest/").finish())
+                            //Err(AppError::INVALID_CREDENTIALS.into())
+                        }
                     
-                    if valid {
-                            let token = hashing.generate_jwt(user.id).await?;
-                            Ok(HttpResponse::Ok().header(header::LOCATION, "http://localhost:4201/").json(Auth{ token }))
-                    }
-                    else{
-                        debug!("invalid password");
-                        Err(AppError::INVALID_CREDENTIALS.into())
-                    }
+                   
     }

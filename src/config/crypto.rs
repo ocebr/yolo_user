@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use std::sync::Arc;
-use argonautica::{Hasher,Verifier};
+use argonautica::{Hasher,Verifier,input::Salt};
 use futures::compat::Future01CompatExt;
 use eyre::eyre;
 use tracing::instrument;
@@ -27,29 +27,22 @@ pub struct Auth {
 }
 
 impl CryptoService {
-    #[instrument(skip(self,password))]
-    pub async fn hash_password(&self, password : String) -> Result<String> {
-        Hasher::default()
-            .with_secret_key(&*self.key)
-            .with_password(password)
-            .hash_non_blocking()    //return an old version of our futures
-            .compat()
-            .await
-            .map_err(|err| eyre!("hash error : {:?}", err))
-    }
 
 
     #[instrument(skip(self))]
-    pub async fn verify_password(&self, password : &str, password_hash : &str) -> Result<bool> {
-        println!("crypto pass : {}", password);
-        Verifier::default()
+    pub async fn verify_password(&self, password : &str, password_hash : &str) -> bool {
+        //println!("crypto pass : {}", password);
+        if Verifier::default()
             .with_secret_key(&*self.key)
+            
             .with_hash(password_hash)
             .with_password(password)
             .verify_non_blocking()
             .compat() // same as hash pass
-            .await
-            .map_err(|err| eyre!("Verifying error: {}", err))
+            .await == Ok(true){true}  
+         
+        //.map_err(|err| eyre!("Verifying error: {}", err))
+        else {false}
        
     }
     #[instrument(skip(self))]
@@ -70,7 +63,6 @@ impl CryptoService {
         .map_err(|err| eyre!("Creating jwt token: {}", err))
 
     }
-
     #[instrument(skip(self, token))]
     pub async fn verify_jwt(&self, token: String) -> Result<TokenData<Permissions>> {
         let jwt_key = self.jwt_secret.clone();
@@ -82,6 +74,4 @@ impl CryptoService {
         .await
         .map_err(|err| eyre!("Verifying jwt token: {}", err))
     }
-
-
 }
