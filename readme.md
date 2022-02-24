@@ -29,3 +29,11 @@ si sqlx ne veut pas mig run -> drop table _sqlxmigration dans psql
 
 prendre un cookie dans un req : Httprequest type
 request.cookie("JWT").unwrap().value()
+
+
+
+
+git :
+    git add .
+    git commit -m ""
+    git push -f --set-upstream https://github.com/eridio/yolo_address_book master
