@@ -37,3 +37,6 @@ git :
     git add .
     git commit -m ""
     git push -f --set-upstream https://github.com/eridio/yolo_address_book master
+    
+    
+    https://aralroca.com/blog/first-steps-webassembly-rust
