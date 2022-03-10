@@ -88,7 +88,7 @@ pub struct Inputlogin {
                  //     web::resource("/addition2").route(
                  //         web::post().to(addition2)))
      })         
-     .bind_openssl("127.0.0.1:8080", builder)?
+     .bind_openssl("0.0.0.0:8080", builder)?
      //.bind(format!("{}:{}",config.host,config.port))?
      .run()
      .await
@@ -99,7 +99,7 @@ pub struct Inputlogin {
 
 
 
-// oceane veut parler a lethithia
+// oceane veut parler a laetitia
 // un quitte la com --> les messages sont transmis au serv
 // si le serv est pas la --> la peer to perr continue la discution
 // et si  un utilisateur se deco -> message perdu
