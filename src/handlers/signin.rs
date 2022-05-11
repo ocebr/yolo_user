@@ -77,7 +77,7 @@ pub async fn signin(
                             //                                                     // .path("/app")
                             //                                                     .finish()));
                             Ok(HttpResponse::Found()
-                                                    .header("Location", "http://yoloooo.com:30801")
+                                                    .header("Location", "https://yoloooo.com/")
                                                     .cookie(Cookie::build("JWT", &token) 
                                                      .secure(true)
                                                      .http_only(true)       
@@ -92,7 +92,7 @@ pub async fn signin(
                         }
 
                         else {
-                            Err(HttpResponse::Found().header("Location", "https://yoloooo.com:30601/pagetest/").finish())
+                            Err(HttpResponse::Found().header("Location", "https://yoloooo.com/front").finish())
                             //Err(AppError::INVALID_CREDENTIALS.into())
                         }
                     
